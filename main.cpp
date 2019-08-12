@@ -14,7 +14,7 @@
 
 torch::Tensor read_data(std::string location) {
     cv::Mat img = cv::imread(location, 1);
-    cv::resize(img, img, cv::Size(7, 7), cv::INTER_CUBIC);
+    cv::resize(img, img, cv::Size(224, 224), cv::INTER_CUBIC);
     torch::Tensor img_tensor = torch::from_blob(img.data, {img.rows, img.cols, 3}, torch::kByte);
     img_tensor = img_tensor.permute({2, 0, 1});
     return img_tensor.clone();
@@ -97,7 +97,7 @@ public:
 };
 
 template<typename Dataloader>
-void train(torch::jit::script::Module net, Dataloader& data_loader, torch::optim::Optimizer& optimizer, size_t dataset_size, int epoch) {
+void train(torch::jit::script::Module net, torch::nn::Linear lin, Dataloader& data_loader, torch::optim::Optimizer& optimizer, size_t dataset_size, int epoch) {
     /*
      This function trains the network on our data loader using optimizer for given number of epochs.
      
@@ -124,11 +124,15 @@ void train(torch::jit::script::Module net, Dataloader& data_loader, torch::optim
         data = data.to(torch::kF32);
         target = target.to(torch::kInt64);
         
-        optimizer.zero_grad();
+        std::vector<torch::jit::IValue> input;
+        input.push_back(data);
         
-        auto output = net.forward(data);
+        auto output = net.forward(input).toTensor().squeeze();
+        // For transfer learning
+        output = lin(output);
         auto loss = torch::nll_loss(output, target);
         
+        optimizer.zero_grad();
         loss.backward();
         optimizer.step();
         
@@ -141,11 +145,11 @@ void train(torch::jit::script::Module net, Dataloader& data_loader, torch::optim
     mse = mse/float(batch_index); // Take mean of loss
     
     std::cout << "Epoch: " << epoch << ", " << "Accuracy: " << Acc/dataset_size << ", " << "MSE: " << mse << std::endl;
-    torch::save(net, "best_model_try.pt");
+//    torch::save(net, "best_model_try.pt");
 }
 
 template<typename Dataloader>
-void test(torch::jit::script::Module network, Dataloader& loader, size_t data_size) {
+void test(torch::jit::script::Module network, torch::nn::Linear lin, Dataloader& loader, size_t data_size) {
     // size_t batch_index = 0;
     
     network.eval();
@@ -161,6 +165,7 @@ void test(torch::jit::script::Module network, Dataloader& loader, size_t data_si
         std::vector<torch::jit::IValue> input;
         input.push_back(data);
         auto output = network.forward(input).toTensor();
+        output = lin(output);
         // std::cout << output << std::endl;
         auto loss = torch::nll_loss(output, targets);
         auto acc = output.argmax(1).eq(targets).sum();
@@ -177,8 +182,8 @@ int main(int argc, const char * argv[]) {
     // insert code here...
     std::cout << "Hello, World!\n";
     
-    std::string cats_name = "/Users/krshrimali/Documents/krshrimali-blogs/dataset/train/cat";
-    std::string dogs_name = "/Users/krshrimali/Documents/krshrimali-blogs/dataset/train/dog";
+    std::string cats_name = "/Users/krshrimali/Documents/krshrimali-blogs/dataset/train/cat_test";
+    std::string dogs_name = "/Users/krshrimali/Documents/krshrimali-blogs/dataset/train/dog_test";
     
     std::vector<std::string> folders_name;
     folders_name.push_back(cats_name);
@@ -200,8 +205,19 @@ int main(int argc, const char * argv[]) {
     
     std::cout << "Problem here" << std::endl;
     
+    // Resourcee: https://discuss.pytorch.org/t/how-to-load-the-prebuilt-resnet-models-or-any-other-prebuilt-models/40269/8
+    
+    torch::nn::Linear lin(512 , 2); // the last layer of resnet, which you want to replace, has dimensions 512x1000
+    torch::optim::Adam opt(lin->parameters(), torch::optim::AdamOptions(1e-3 /*learning rate*/));
+    
     auto data_loader = torch::data::make_data_loader<torch::data::samplers::RandomSampler>(std::move(custom_dataset),64);
     std::cout << "Size is: " << custom_dataset.size().value() << std::endl;
-    test(module, data_loader, custom_dataset.size().value());
+    
+//    torch::optim::Adam optimizer(module.get_parameters(), torch::optim::AdamOptions(1e-3));
+    
+    for(int i = 0; i < 10; i++) {
+        train(module, lin, data_loader, opt, custom_dataset.size().value(), i);
+        test(module, lin, data_loader, custom_dataset.size().value());
+    }
     return 0;
 }
