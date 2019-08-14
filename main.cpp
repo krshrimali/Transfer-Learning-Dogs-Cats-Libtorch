@@ -77,10 +77,12 @@ private:
     /* data */
     // Should be 2 tensors
     std::vector<torch::Tensor> states, labels;
+    size_t ds_size;
 public:
     CustomDataset(std::vector<std::string> list_images, std::vector<int> list_labels) {
         states = process_images(list_images);
         labels = process_labels(list_labels);
+        ds_size = states.size();
     };
     
     torch::data::Example<> get(size_t index) override {
@@ -91,7 +93,7 @@ public:
     };
     
     torch::optional<size_t> size() const override {
-        return states.size();
+        return ds_size;
     };
 };
 
@@ -102,14 +104,12 @@ void train(torch::jit::script::Module net, torch::nn::Linear lin, Dataloader& da
      
      Parameters
      ==================
-     ConvNet& net: Network struct
+     torch::jit::script::Module net: Pre-trained model
+     torch::nn::Linear lin: Linear layer
      DataLoader& data_loader: Training data loader
      torch::optim::Optimizer& optimizer: Optimizer like Adam, SGD etc.
      size_t dataset_size: Size of training dataset
-     int epoch: Number of epoch for training
      */
-    
-    net.train();
     
     float batch_index = 0;
     
@@ -128,22 +128,19 @@ void train(torch::jit::script::Module net, torch::nn::Linear lin, Dataloader& da
             std::vector<torch::jit::IValue> input;
             input.push_back(data);
             optimizer.zero_grad();
-//            std::cout << "Input: " << input << std::endl;
+            
             auto output = net.forward(input).toTensor();
             // For transfer learning
             output = output.view({output.size(0), -1});
-//            std::cout << output << std::endl;
             output = lin(output);
-//            std::cout << output << std::endl;
-            auto loss = torch::nll_loss(torch::log_softmax(output, 1), target);
             
+            auto loss = torch::nll_loss(torch::log_softmax(output, 1), target);
             
             loss.backward();
             optimizer.step();
             
             auto acc = output.argmax(1).eq(target).sum();
-            // std::cout << "Target was: " << std::endl;
-            // std::cout << "Output: " << output.argmax(1) << std::endl;
+            
             Acc += acc.template item<float>();
             mse += loss.template item<float>();
             
@@ -152,17 +149,14 @@ void train(torch::jit::script::Module net, torch::nn::Linear lin, Dataloader& da
         
         mse = mse/float(batch_index); // Take mean of loss
         std::cout << "Epoch: " << i  << ", " << "Accuracy: " << Acc/dataset_size << ", " << "MSE: " << mse << std::endl;
+        net.save("model.pt");
     }
-    
-    // torch::save(net, "best_model_try.pt");
 }
 
 template<typename Dataloader>
 void test(torch::jit::script::Module network, torch::nn::Linear lin, Dataloader& loader, size_t data_size) {
-    // size_t batch_index = 0;
-    
     network.eval();
-        
+    
     float Loss = 0, Acc = 0;
     
     for (const auto& batch : *loader) {
@@ -174,12 +168,11 @@ void test(torch::jit::script::Module network, torch::nn::Linear lin, Dataloader&
         std::vector<torch::jit::IValue> input;
         input.push_back(data);
         auto output = network.forward(input).toTensor();
-        // std::cout << output.size(0) << output.size(1) << output.size(2) << output.size(3) << std::endl;
+        
         output = output.view({output.size(0), -1});
-        // std::cout << output.size(0) << output.size(1) << std::endl;
-        // output.size(2) << output.size(3) << std::endl;
+        
         output = lin(output);
-        // std::cout << output << std::endl;
+        
         auto loss = torch::nll_loss(torch::log_softmax(output, 1), targets);
         auto acc = output.argmax(1).eq(targets).sum();
         Loss += loss.template item<float>();
@@ -190,9 +183,6 @@ void test(torch::jit::script::Module network, torch::nn::Linear lin, Dataloader&
 }
 
 int main(int argc, const char * argv[]) {
-    // insert code here...
-    std::cout << "Hello, World!\n";
-    
     std::string cats_name = "/Users/krshrimali/Documents/krshrimali-blogs/dataset/train/cat_test";
     std::string dogs_name = "/Users/krshrimali/Documents/krshrimali-blogs/dataset/train/dog_test";
     
@@ -207,7 +197,6 @@ int main(int argc, const char * argv[]) {
     std::vector<std::string> list_images = pair_images_labels.first;
     std::vector<int> list_labels = pair_images_labels.second;
     
-    //
     auto custom_dataset = CustomDataset(list_images, list_labels).map(torch::data::transforms::Stack<>());
     
     std::cout << "Dataset initialized" << std::endl;
@@ -215,26 +204,14 @@ int main(int argc, const char * argv[]) {
     torch::jit::script::Module module;
     module = torch::jit::load(argv[1]);
     
-//    std::cout << "Problem here" << std::endl;
-    
-    // Resourcee: https://discuss.pytorch.org/t/how-to-load-the-prebuilt-resnet-models-or-any-other-prebuilt-models/40269/8
+    // Resource: https://discuss.pytorch.org/t/how-to-load-the-prebuilt-resnet-models-or-any-other-prebuilt-models/40269/8
     // For VGG: 512 * 14 * 14, 2
+    
     torch::nn::Linear lin(512, 2); // the last layer of resnet, which you want to replace, has dimensions 512x1000
     torch::optim::Adam opt(lin->parameters(), torch::optim::AdamOptions(1e-3 /*learning rate*/));
     
     auto data_loader = torch::data::make_data_loader<torch::data::samplers::RandomSampler>(std::move(custom_dataset), 4);
-//    std::cout << "Size is: " << custom_dataset.size().value() << std::endl;
     
-//    torch::optim::Adam optimizer(module.get_parameters(), torch::optim::AdamOptions(1e-3));
-    
-    /*
-    for(int i = 0; i < 10; i++) {
-        train(module, lin, data_loader, opt, custom_dataset.size().value(), i);
-        // test(module, lin, data_loader, custom_dataset.size().value());
-    }
-    */
-    
-    std::cout << custom_dataset.size() << std::endl;
     train(module, lin, data_loader, opt, custom_dataset.size().value());
     
     return 0;
