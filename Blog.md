@@ -260,4 +260,6 @@ The code to test should also not change much except the need of optimizer.
 
 ## Results
 
-On a set of 400 images for training data, the maximum training Accuracy I could achieve was 88.75% in just less than 10 epochs. 
+<img src="images/Training-Results.png"></img>
+
+On a set of 400 images for training data, the maximum training Accuracy I could achieve was 91.25% in just less than 15 epochs. 
