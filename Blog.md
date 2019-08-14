@@ -154,6 +154,10 @@ cost = torch.nn.CrossEntropyLoss()
 
 ## Trainining the FC Layer
 
+Let's first have a look at ResNet18 Network Architecture
+
+<img src="images/ResNet18-Architecture.png">Reference: https://www.researchgate.net/figure/ResNet-18-Architecture_tbl1_322476121</img>
+
 The final step is to train the Fully Connected layer that we inserted at the end of the network (`linear_layer`). This one should be pretty straight forward, let's see how to do it.
 
 **C++**:
