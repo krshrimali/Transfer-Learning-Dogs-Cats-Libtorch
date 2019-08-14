@@ -256,6 +256,7 @@ The code to test should also not change much except the need of optimizer.
 
 ## Results
 
-<img src="images/Training-Results.png"></img>
+<img src="images/Training-Results.png">Results using PyTorch C++ API</img>
+<img src="images/Training-Results-Python.png">Results using PyTorch in Python</img>
 
-On a set of 400 images for training data, the maximum training Accuracy I could achieve was 91.25% in just less than 15 epochs. 
+On a set of 400 images for training data, the maximum training Accuracy I could achieve was 91.25% in just less than 15 epochs using PyTorch C++ API and 89.0% using Python. (Note that this doesn't conclude superiority in terms of accuracy between any of the two backends - C++ or Python)
