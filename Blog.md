@@ -59,7 +59,6 @@ import torch
 
 folder_path = "/Users/krshrimali/Documents/dataset/train/"
 transform = transforms.Compose([transforms.CenterCrop(224), transforms.ToTensor())
-train_data = datasets.ImageFolder(root = os.path.join(folder_path))
 data = datasets.ImageFolder(root = os.path.join(folder_path), transform = transform)
 ```
 
@@ -76,7 +75,7 @@ auto data_loader = torch::data::make_data_loader<torch::data::samplers::RandomSa
 
 ```python
 batch_size = 4
-data_loader = torch.utils.data.DataLoader(dataset=train_data, batch_size = batch_size, shuffle = True)
+data_loader = torch.utils.data.DataLoader(dataset=data, batch_size = batch_size, shuffle = True)
 ```
 
 ## Loading the pre-trained model
@@ -250,8 +249,8 @@ for epoch in range(n_epochs):
             print("Batch {}, Train Loss:{:.4f}, Train ACC:{:.4f}".format(
             batch, running_loss/(4*batch), 100*running_correct/(4*batch)))
     
-    mse = mse/len(train_data)
-    acc = 100*acc/len(train_data)
+    mse = mse/len(data)
+    acc = 100*acc/len(data)
     
     print("Epoch: {}/{}, Loss: {:.4f}, Accuracy: {:.4f}".format(epoch+1, n_epochs, mse, acc))
 ```
