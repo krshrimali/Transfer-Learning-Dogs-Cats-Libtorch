@@ -215,9 +215,8 @@ void train(torch::jit::script::Module net, torch::nn::Linear lin, Dataloader& da
         
         mse = mse/float(batch_index); // Take mean of loss
         std::cout << "Epoch: " << i  << ", " << "Accuracy: " << Acc/dataset_size << ", " << "MSE: " << mse << std::endl;
-        net.save("best_model.pt");
+        net.save("model.pt");
     }
-    // torch::save(net, "best_model_try.pt");
 }
 ```
 
