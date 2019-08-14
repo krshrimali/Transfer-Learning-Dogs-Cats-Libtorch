@@ -229,9 +229,9 @@ for epoch in range(n_epochs):
     acc = 0
     batch_index = 0
 
-    for data in data_loader:
+    for data_batch in data_loader:
         batch_index += 1
-        image, label = data
+        image, label = data_batch
         
         optimizer.zero_grad()
 
@@ -245,9 +245,6 @@ for epoch in range(n_epochs):
 
         mse += loss.item() # data[0]
         acc += torch.sum(predicted_label == label.data)
-        if batch%5 == 0 and param == "train":
-            print("Batch {}, Train Loss:{:.4f}, Train ACC:{:.4f}".format(
-            batch, running_loss/(4*batch), 100*running_correct/(4*batch)))
     
     mse = mse/len(data)
     acc = 100*acc/len(data)
