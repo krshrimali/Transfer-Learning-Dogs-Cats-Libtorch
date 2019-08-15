@@ -46,7 +46,7 @@ Once done, we can initialize the `CustomDataset` class:
 ```cpp
 std::vector<std::string> list_images; // list of images of Dogs and Cats, use load_data_from_folder function explained in previous blogs
 std::vector<int> list_labels; // list of labels of the images
-auto custom_dataset = CustomDataset(list_images, list_labes).map(torch::data::transforms::Stack<>());
+auto custom_dataset = CustomDataset(list_images, list_labels).map(torch::data::transforms::Stack<>());
 ```
 
 **Python**
