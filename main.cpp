@@ -6,13 +6,20 @@
 //  Copyright © 2019 Kushashwa Ravi Shrimali. All rights reserved.
 //
 
-#include <iostream>
-#include <opencv2/opencv.hpp>
-#include <torch/torch.h>
-#include <dirent.h>
-#include <torch/script.h>
+#include "main.h"
 
 torch::Tensor read_data(std::string location) {
+    /*
+     Function to return image read at location given as type torch::Tensor
+     Resizes image to (224, 224, 3)
+     Parameters
+     ===========
+     1. location (std::string type) - required to load image from the location
+     
+     Returns
+     ===========
+     torch::Tensor type - image read as tensor
+    */
     cv::Mat img = cv::imread(location, 1);
     cv::resize(img, img, cv::Size(224, 224), cv::INTER_CUBIC);
     torch::Tensor img_tensor = torch::from_blob(img.data, {img.rows, img.cols, 3}, torch::kByte);
@@ -21,11 +28,31 @@ torch::Tensor read_data(std::string location) {
 }
 
 torch::Tensor read_label(int label) {
+    /*
+     Function to return label from int (0, 1 for binary and 0, 1, ..., n-1 for n-class classification) as type torch::Tensor
+     Parameters
+     ===========
+     1. label (int type) - required to convert int to tensor
+     
+     Returns
+     ===========
+     torch::Tensor type - label read as tensor
+    */
     torch::Tensor label_tensor = torch::full({1}, label);
     return label_tensor.clone();
 }
 
 std::vector<torch::Tensor> process_images(std::vector<std::string> list_images) {
+    /*
+     Function returns vector of tensors (images) read from the list of images in a folder
+     Parameters
+     ===========
+     1. list_images (std::vector<std::string> type) - list of image paths in a folder to be read
+     
+     Returns
+     ===========
+     std::vector<torch::Tensor> type - Images read as tensors
+     */
     std::vector<torch::Tensor> states;
     for(std::vector<std::string>::iterator it = list_images.begin(); it != list_images.end(); ++it) {
         torch::Tensor img = read_data(*it);
@@ -35,6 +62,16 @@ std::vector<torch::Tensor> process_images(std::vector<std::string> list_images) 
 }
 
 std::vector<torch::Tensor> process_labels(std::vector<int> list_labels) {
+    /*
+     Function returns vector of tensors (labels) read from the list of labels
+     Parameters
+     ===========
+     1. list_labels (std::vector<int> list_labels) -
+     
+     Returns
+     ===========
+     std::vector<torch::Tensor> type - returns vector of tensors (labels)
+     */
     std::vector<torch::Tensor> labels;
     for(std::vector<int>::iterator it = list_labels.begin(); it != list_labels.end(); ++it) {
         torch::Tensor label = read_label(*it);
@@ -44,6 +81,17 @@ std::vector<torch::Tensor> process_labels(std::vector<int> list_labels) {
 }
 
 std::pair<std::vector<std::string>,std::vector<int>> load_data_from_folder(std::vector<std::string> folders_name) {
+    /*
+     Function to load data from given folder(s) name(s) (folders_name)
+     Returns pair of vectors of string (image locations) and int (respective labels)
+     Parameters
+     ===========
+     1. folders_name (std::vector<std::string> type) - name of folders as a vector to load data from
+     
+     Returns
+     ===========
+     std::pair<std::vector<std::string>, std::vector<int>> type - returns pair of vector of strings (image paths) and respective labels' vector (int label)
+     */
     std::vector<std::string> list_images;
     std::vector<int> list_labels;
     int label = 0;
@@ -72,43 +120,23 @@ std::pair<std::vector<std::string>,std::vector<int>> load_data_from_folder(std::
     return std::make_pair(list_images, list_labels);
 }
 
-class CustomDataset : public torch::data::Dataset<CustomDataset> {
-private:
-    /* data */
-    // Should be 2 tensors
-    std::vector<torch::Tensor> states, labels;
-    size_t ds_size;
-public:
-    CustomDataset(std::vector<std::string> list_images, std::vector<int> list_labels) {
-        states = process_images(list_images);
-        labels = process_labels(list_labels);
-        ds_size = states.size();
-    };
-    
-    torch::data::Example<> get(size_t index) override {
-        /* This should return {torch::Tensor, torch::Tensor} */
-        torch::Tensor sample_img = states.at(index);
-        torch::Tensor sample_label = labels.at(index);
-        return {sample_img.clone(), sample_label.clone()};
-    };
-    
-    torch::optional<size_t> size() const override {
-        return ds_size;
-    };
-};
-
 template<typename Dataloader>
 void train(torch::jit::script::Module net, torch::nn::Linear lin, Dataloader& data_loader, torch::optim::Optimizer& optimizer, size_t dataset_size) {
     /*
-     This function trains the network on our data loader using optimizer for given number of epochs.
+     This function trains the network on our data loader using optimizer.
      
+     Also saves the model as model.pt after every epoch.
      Parameters
-     ==================
-     torch::jit::script::Module net: Pre-trained model
-     torch::nn::Linear lin: Linear layer
-     DataLoader& data_loader: Training data loader
-     torch::optim::Optimizer& optimizer: Optimizer like Adam, SGD etc.
-     size_t dataset_size: Size of training dataset
+     ===========
+     1. net (torch::jit::script::Module type) - Pre-trained model without last FC layer
+     2. lin (torch::nn::Linear type) - last FC layer with revised out_features depending on the number of classes
+     3. data_loader (DataLoader& type) - Training data loader
+     4. optimizer (torch::optim::Optimizer& type) - Optimizer like Adam, SGD etc.
+     5. size_t (dataset_size type) - Size of training dataset
+     
+     Returns
+     ===========
+     Nothing (void)
      */
     
     float batch_index = 0;
@@ -155,6 +183,20 @@ void train(torch::jit::script::Module net, torch::nn::Linear lin, Dataloader& da
 
 template<typename Dataloader>
 void test(torch::jit::script::Module network, torch::nn::Linear lin, Dataloader& loader, size_t data_size) {
+    /*
+     Function to test the network on test data
+     
+     Parameters
+     ===========
+     1. network (torch::jit::script::Module type) - Pre-trained model without last FC layer
+     2. lin (torch::nn::Linear type) - last FC layer with revised out_features depending on the number of classes
+     3. loader (Dataloader& type) - test data loader
+     4. data_size (size_t type) - test data size
+     
+     Returns
+     ===========
+     Nothing (void)
+     */
     network.eval();
     
     float Loss = 0, Acc = 0;
@@ -183,6 +225,7 @@ void test(torch::jit::script::Module network, torch::nn::Linear lin, Dataloader&
 }
 
 int main(int argc, const char * argv[]) {
+    // Set folder names for cat and dog images
     std::string cats_name = "/Users/krshrimali/Documents/krshrimali-blogs/dataset/train/cat_test";
     std::string dogs_name = "/Users/krshrimali/Documents/krshrimali-blogs/dataset/train/dog_test";
     
@@ -190,24 +233,23 @@ int main(int argc, const char * argv[]) {
     folders_name.push_back(cats_name);
     folders_name.push_back(dogs_name);
     
+    // Get paths of images and labels as int from the folder paths
     std::pair<std::vector<std::string>, std::vector<int>> pair_images_labels = load_data_from_folder(folders_name);
-    
-    std::cout << "Data loaded" << std::endl;
     
     std::vector<std::string> list_images = pair_images_labels.first;
     std::vector<int> list_labels = pair_images_labels.second;
     
+    // Initialize CustomDataset class and read data
     auto custom_dataset = CustomDataset(list_images, list_labels).map(torch::data::transforms::Stack<>());
     
-    std::cout << "Dataset initialized" << std::endl;
-    
+    // Load pre-trained model
     torch::jit::script::Module module;
     module = torch::jit::load(argv[1]);
     
     // Resource: https://discuss.pytorch.org/t/how-to-load-the-prebuilt-resnet-models-or-any-other-prebuilt-models/40269/8
     // For VGG: 512 * 14 * 14, 2
     
-    torch::nn::Linear lin(512, 2); // the last layer of resnet, which you want to replace, has dimensions 512x1000
+    torch::nn::Linear lin(512, 2); // the last layer of resnet, which we want to replace, has dimensions 512x1000
     torch::optim::Adam opt(lin->parameters(), torch::optim::AdamOptions(1e-3 /*learning rate*/));
     
     auto data_loader = torch::data::make_data_loader<torch::data::samplers::RandomSampler>(std::move(custom_dataset), 4);
