@@ -2,9 +2,7 @@
 
 Before we go ahead and discuss the **Why** question of Transfer Learning, let's have a look at **What is Transfer Learning?** Let's have a look at the <a href="http://cs231n.github.io/transfer-learning/">Notes</a> from CS231n on Transfer Learning:
 
-```quote
-In practice, very few people train an entire Convolutional Network from scratch (with random initialization), because it is relatively rare to have a dataset of sufficient size. Instead, it is common to pretrain a ConvNet on a very large dataset (e.g. ImageNet, which contains 1.2 million images with 1000 categories), and then use the ConvNet either as an initialization or a fixed feature extractor for the task of interest.
-```
+> In practice, very few people train an entire Convolutional Network from scratch (with random initialization), because it is relatively rare to have a dataset of sufficient size. Instead, it is common to pretrain a ConvNet on a very large dataset (e.g. ImageNet, which contains 1.2 million images with 1000 categories), and then use the ConvNet either as an initialization or a fixed feature extractor for the task of interest.
 
 There are 3 scenarios possible:
 
@@ -93,9 +91,9 @@ Let's go step by step.
 
 **Step-1**: Download the pre-trained model of ResNet18
 
-Currently, PyTorch C++ API doesn't have models incooperated to their API (like Python API has). But it's alright, the PyTorch developers have worked hard in developing `torch.jit` module which is also available in C++ API. Let's see how we do that.
+(yf225 COMMENT: this comment can probably be clarified - we do have C++ models available in torchvision https://github.com/pytorch/vision/pull/728, but for this tutorial, transferring the pre-trained model from Python to C++ using `torch.jit` is a good idea, as most PyTorch models in the wild are written in Python right now, and people can use this tutorial to learn how to trace their Python model and transfer it to C++.) Currently, PyTorch C++ API doesn't have models incooperated to their API (like Python API has). But it's alright, the PyTorch developers have worked hard in developing `torch.jit` module which is also available in C++ API. Let's see how we do that.
 
-First we donwload the pre-trained model and save it in the form of `torch.jit.trace` format to our local drive. 
+First we download the pre-trained model and save it in the form of `torch.jit.trace` format to our local drive. 
 
 ```python
 # Reference: #TODO- Add Link
@@ -119,7 +117,7 @@ We will be using `resnet18_without_last_layer.pt` model file as our pre-trained 
 
 **Step-2**: Load the pre-trained model
 
-Let's go ahead and load the pre-trained model using `torch::jit` module. Note that the reason we have converted `torch.nn` to `torch.jit` type, is because C++ API currently does not support loading models of `torch.nn` modules.
+Let's go ahead and load the pre-trained model using `torch::jit` module. Note that the reason we have converted `torch.nn.Module` to `torch.jit.ScriptModule` type, is because C++ API currently does not support loading Python `torch.nn.Module` models directly.
 
 **C++**:
 
