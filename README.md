@@ -12,4 +12,4 @@ Transfer Learning on Dogs vs Cats dataset using PyTorch C++ API
 TODOs:
 
 1. Load dataset in the way suggested. Prevents OOM (lazily load a single image)
-2. Test accuracy. And predictions samples.
+2. ~~Test accuracy. And predictions samples.~~
